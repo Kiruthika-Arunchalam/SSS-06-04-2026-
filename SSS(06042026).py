@@ -268,4 +268,70 @@ op1 = st.selectbox("Operator 1", op_list)
 op2 = st.selectbox("Operator 2", op_list)
 
 st.write(f"{op1}: {len(filtered_df[filtered_df['Operator_Code']==op1])} records")
-st.write(f"{op2}: {len(filtered_df[filtered_df['Operator_Code']==op2])} records")
+st.write(f"{op2}: {len(filtered_df[filtered_df['Operator_Code']==op2])} records
+# ---------------------------
+# LOAD COUNTRY DATA
+# ---------------------------
+country_df = pd.read_csv("country_lat_lon.csv")
+
+country_df = country_df.rename(columns={
+    "country_code": "Country_Code",
+    "latitude": "Latitude",
+    "longitude": "Longitude"
+})
+
+country_df["Country_Code"] = country_df["Country_Code"].str.strip().str.upper()
+
+# ---------------------------
+# PREPARE MAP DATA
+# ---------------------------
+map_df = filtered_df.copy()
+
+map_df["From_Port_Code"] = map_df["From_Port_Code"].astype(str).str.strip().str.upper()
+map_df["To_Port_Code"] = map_df["To_Port_Code"].astype(str).str.strip().str.upper()
+
+# Extract country
+map_df["From_Country"] = map_df["From_Port_Code"].str[:2]
+map_df["To_Country"] = map_df["To_Port_Code"].str[:2]
+
+# ---------------------------
+# MERGE LAT/LON (FROM)
+# ---------------------------
+map_df = map_df.merge(
+    country_df,
+    left_on="From_Country",
+    right_on="Country_Code",
+    how="left"
+).rename(columns={
+    "Latitude": "From_Lat",
+    "Longitude": "From_Lon"
+})
+
+# ---------------------------
+# MERGE LAT/LON (TO)
+# ---------------------------
+map_df = map_df.merge(
+    country_df,
+    left_on="To_Country",
+    right_on="Country_Code",
+    how="left",
+    suffixes=("", "_to")
+).rename(columns={
+    "Latitude": "To_Lat",
+    "Longitude": "To_Lon"
+})
+
+# ---------------------------
+# COMBINE POINTS
+# ---------------------------
+map_points = pd.concat([
+    map_df[["From_Lat", "From_Lon"]].rename(columns={"From_Lat": "lat", "From_Lon": "lon"}),
+    map_df[["To_Lat", "To_Lon"]].rename(columns={"To_Lat": "lat", "To_Lon": "lon"})
+])
+
+map_points = map_points.dropna()
+
+# ---------------------------
+# PLOT MAP
+# ---------------------------
+st.map(map_points)
