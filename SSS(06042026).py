@@ -177,48 +177,52 @@ st.dataframe(final_df, use_container_width=True)# ---------------------------
 # ---------------------------
 # DATE WISE OPERATOR COUNT (FINAL CLEAN)
 # ---------------------------
-st.markdown('<div class="section">Date Wise Operator Count</div>', unsafe_allow_html=True)
+# ---------------------------
+# DATE WISE OPERATOR COUNT (FINAL FIXED)
+# ---------------------------
+st.markdown('<div class="section">Operator Count (Selected Date)</div>', unsafe_allow_html=True)
 
 # Create trend data
 trend = (
     filtered_df
-    .groupby(["Inserted_Date", "Operator_Code"])
+    .groupby(["Operator_Code"])
     .size()
     .reset_index(name="Count")
 )
 
-# ✅ Format date to dd-mm-yyyy
-trend["Inserted_Date"] = pd.to_datetime(trend["Inserted_Date"]).dt.strftime("%d-%m-%Y")
+# Sort for better view
+trend = trend.sort_values(by="Count", ascending=False)
 
 # Create chart
 fig = px.bar(
     trend,
-    x="Inserted_Date",
+    x="Operator_Code",   # ✅ FIXED
     y="Count",
     color="Operator_Code",
     text="Count",
-    barmode="group",   # ✅ grouped bars (best visibility)
-    color_discrete_sequence=px.colors.qualitative.Bold  # ✅ strong colors
+    color_discrete_sequence=px.colors.qualitative.Bold
 )
 
-# Show count clearly
+# ✅ Show count clearly
 fig.update_traces(
     textposition="outside",
-    textfont=dict(size=12)
+    textfont=dict(size=12, color="black")
 )
 
-# Rotate x-axis if needed
+# ❌ REMOVE GRIDLINES
 fig.update_layout(
-    xaxis_title="Date",
-    yaxis_title="Operator Count",
-    xaxis_tickangle=-30
+    xaxis_title="Operator",
+    yaxis_title="Count",
+    xaxis_tickangle=-30,
+    showlegend=False,  # optional cleaner look
+    yaxis=dict(showgrid=False),
+    xaxis=dict(showgrid=False)
 )
 
-# Apply your theme styling
+# Apply theme
 fig = style_chart(fig)
 
-# Display
-st.plotly_chart(fig, use_container_width=True)# ---------------------------
+st.plotly_chart(fig, use_container_width=True)
 # OPERATOR COMPARISON
 # ---------------------------
 st.markdown('<div class="section">Operator Comparison</div>', unsafe_allow_html=True)
