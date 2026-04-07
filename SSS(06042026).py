@@ -123,6 +123,18 @@ to_port = col4.multiselect("To Port", to_port_list)
 
 # ---------------------------
 filtered_df = df.copy()
+
+if operator:
+    filtered_df = filtered_df[filtered_df["Operator_Code"].isin(operator)]
+
+if service:
+    filtered_df = filtered_df[filtered_df["Service"].isin(service)]
+
+if from_port:
+    filtered_df = filtered_df[filtered_df["From_Port"].isin(from_port)]
+
+if to_port:
+    filtered_df = filtered_df[filtered_df["To_Port"].isin(to_port)]
 # ---------------------------
 c1, c2, c3, c4 = st.columns(4)
 
