@@ -270,13 +270,13 @@ op2 = st.selectbox("Operator 2", op_list)
 st.write(f"{op1}: {len(filtered_df[filtered_df['Operator_Code']==op1])} records")
 st.write(f"{op2}: {len(filtered_df[filtered_df['Operator_Code'] == op2])} records")
 
-
 import pydeck as pdk
 import pandas as pd
+import streamlit as st
 
-# ---------------------------
+# =========================================================
 # LOAD COUNTRY DATA
-# ---------------------------
+# =========================================================
 country_df = pd.read_csv("country_lat_lon.csv")
 
 country_df = country_df.rename(columns={
@@ -285,37 +285,67 @@ country_df = country_df.rename(columns={
     "longitude": "Longitude"
 })
 
-country_df["Country_Code"] = country_df["Country_Code"].str.strip().str.upper()
+country_df["Country_Code"] = country_df["Country_Code"].astype(str).str.strip().str.upper()
 
-# ---------------------------
+# =========================================================
 # PREPARE DATA
-# ---------------------------
+# =========================================================
 map_df = filtered_df.copy()
+
+# Clean column names
 map_df.columns = map_df.columns.str.strip().str.replace(r"\s+", "_", regex=True)
 
 # Clean port codes
-map_df["From_Port_Code"] = map_df["From_Port_Code"].str.strip().str.upper()
-map_df["To_Port_Code"] = map_df["To_Port_Code"].str.strip().str.upper()
+map_df["From_Port_Code"] = map_df["From_Port_Code"].astype(str).str.strip().str.upper()
+map_df["To_Port_Code"] = map_df["To_Port_Code"].astype(str).str.strip().str.upper()
 
 # Extract country
 map_df["From_Country"] = map_df["From_Port_Code"].str[:2]
 map_df["To_Country"] = map_df["To_Port_Code"].str[:2]
 
-# ---------------------------
-# GROUP ROUTES (🔥 KEY FIX)
-# ---------------------------
+# =========================================================
+# GROUP ROUTES
+# =========================================================
 route_df = (
     map_df.groupby(["From_Country", "To_Country"])
     .size()
     .reset_index(name="Count")
 )
 
-# 🔥 TAKE TOP ROUTES ONLY
-route_df = route_df.sort_values(by="Count", ascending=False).head(30)
+# =========================================================
+# USER CONTROL (🔥 KEY FEATURE)
+# =========================================================
+st.markdown("### 🌍 Route Selection")
+
+mode = st.radio(
+    "Select View",
+    ["Top Routes (Recommended)", "Select Specific Routes"]
+)
 
 # ---------------------------
-# MERGE LAT/LON
+# OPTION 1: TOP ROUTES
 # ---------------------------
+if mode == "Top Routes (Recommended)":
+    top_n = st.slider("Select Top Routes", 5, 50, 20)
+    route_df = route_df.sort_values(by="Count", ascending=False).head(top_n)
+
+# ---------------------------
+# OPTION 2: SELECT ROUTES
+# ---------------------------
+else:
+    route_df["Route"] = route_df["From_Country"] + " → " + route_df["To_Country"]
+
+    selected_routes = st.multiselect(
+        "Select Routes",
+        route_df["Route"].unique()
+    )
+
+    if selected_routes:
+        route_df = route_df[route_df["Route"].isin(selected_routes)]
+
+# =========================================================
+# MERGE LAT/LON
+# =========================================================
 route_df = route_df.merge(
     country_df,
     left_on="From_Country",
@@ -331,26 +361,39 @@ route_df = route_df.merge(
     suffixes=("", "_to")
 ).rename(columns={"Latitude": "to_lat", "Longitude": "to_lon"})
 
-route_df = route_df.dropna()
+# =========================================================
+# REMOVE INVALID DATA
+# =========================================================
+route_df = route_df[
+    route_df["from_lat"].notna() &
+    route_df["from_lon"].notna() &
+    route_df["to_lat"].notna() &
+    route_df["to_lon"].notna()
+]
 
-# ---------------------------
-# ARC LAYER (THICKNESS BASED)
-# ---------------------------
+# Safety check
+if route_df.empty:
+    st.warning("⚠️ No routes available for selected filters")
+    st.stop()
+
+# =========================================================
+# ARC LAYER
+# =========================================================
 arc_layer = pdk.Layer(
     "ArcLayer",
     data=route_df,
     get_source_position=["from_lon", "from_lat"],
     get_target_position=["to_lon", "to_lat"],
-    get_width="Count",  # 🔥 thickness based on traffic
+    get_width="Count",  # thickness based on traffic
     width_scale=0.5,
     get_source_color=[0, 128, 255],
     get_target_color=[255, 0, 80],
     pickable=True,
 )
 
-# ---------------------------
-# VIEW
-# ---------------------------
+# =========================================================
+# VIEW SETTINGS
+# =========================================================
 view_state = pdk.ViewState(
     latitude=20,
     longitude=0,
@@ -358,21 +401,22 @@ view_state = pdk.ViewState(
     pitch=30,
 )
 
-# ---------------------------
-# TOOLTIP (🔥 PRO FEATURE)
-# ---------------------------
+# =========================================================
+# TOOLTIP
+# =========================================================
 tooltip = {
     "html": "<b>Route:</b> {From_Country} → {To_Country}<br><b>Count:</b> {Count}",
     "style": {"color": "white"}
 }
 
-# ---------------------------
-# DISPLAY
-# ---------------------------
-st.markdown("### 🌍 Clean Shipping Flow Map")
+# =========================================================
+# DISPLAY MAP
+# =========================================================
+st.markdown("### Top Routes map")
 
 st.pydeck_chart(pdk.Deck(
     layers=[arc_layer],
     initial_view_state=view_state,
     tooltip=tooltip
 ))
+
