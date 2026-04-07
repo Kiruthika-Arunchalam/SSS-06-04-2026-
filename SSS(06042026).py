@@ -283,7 +283,7 @@ country_df = country_df.rename(columns={
 country_df["Country_Code"] = country_df["Country_Code"].str.strip().str.upper()
 
 # =========================================================
-# 🌍 MAP SECTION (FULL WORKING VERSION)
+# 🌍 MAP SECTION (FINAL FIXED VERSION)
 # =========================================================
 
 # ---------------------------
@@ -291,7 +291,6 @@ country_df["Country_Code"] = country_df["Country_Code"].str.strip().str.upper()
 # ---------------------------
 country_df = pd.read_csv("country_lat_lon.csv")
 
-# Clean + rename
 country_df = country_df.rename(columns={
     "country_code": "Country_Code",
     "latitude": "Latitude",
@@ -301,38 +300,54 @@ country_df = country_df.rename(columns={
 country_df["Country_Code"] = country_df["Country_Code"].astype(str).str.strip().str.upper()
 
 # ---------------------------
-# FIX COLUMN NAMES (IMPORTANT)
+# CLEAN COLUMN NAMES PROPERLY
 # ---------------------------
-# Remove spaces & standardize
-filtered_df.columns = filtered_df.columns.str.strip().str.replace(" ", "_")
+filtered_df.columns = (
+    filtered_df.columns
+    .str.strip()
+    .str.replace(r"\s+", "_", regex=True)
+)
 
 map_df = filtered_df.copy()
 
 # ---------------------------
-# CHECK REQUIRED COLUMNS
+# DEBUG (PRINT ON SCREEN)
 # ---------------------------
-required_cols = ["From_Port_Code", "To_Port_Code"]
+st.write("Columns in dataset:", map_df.columns.tolist())
 
-missing_cols = [col for col in required_cols if col not in map_df.columns]
+# ---------------------------
+# AUTO FIND PORT CODE COLUMNS
+# ---------------------------
+from_col = None
+to_col = None
 
-if missing_cols:
-    st.error(f"Missing columns: {missing_cols}")
+for col in map_df.columns:
+    if "from" in col.lower() and "code" in col.lower():
+        from_col = col
+    if "to" in col.lower() and "code" in col.lower():
+        to_col = col
+
+# ---------------------------
+# VALIDATION
+# ---------------------------
+if not from_col or not to_col:
+    st.error("❌ Could not detect From/To Port Code columns")
     st.stop()
 
 # ---------------------------
 # CLEAN PORT CODES
 # ---------------------------
-map_df["From_Port_Code"] = map_df["From_Port_Code"].astype(str).str.strip().str.upper()
-map_df["To_Port_Code"] = map_df["To_Port_Code"].astype(str).str.strip().str.upper()
+map_df[from_col] = map_df[from_col].astype(str).str.strip().str.upper()
+map_df[to_col] = map_df[to_col].astype(str).str.strip().str.upper()
 
 # ---------------------------
 # EXTRACT COUNTRY
 # ---------------------------
-map_df["From_Country"] = map_df["From_Port_Code"].str[:2]
-map_df["To_Country"] = map_df["To_Port_Code"].str[:2]
+map_df["From_Country"] = map_df[from_col].str[:2]
+map_df["To_Country"] = map_df[to_col].str[:2]
 
 # ---------------------------
-# MERGE FROM COUNTRY LAT/LON
+# MERGE FROM
 # ---------------------------
 map_df = map_df.merge(
     country_df,
@@ -345,7 +360,7 @@ map_df = map_df.merge(
 })
 
 # ---------------------------
-# MERGE TO COUNTRY LAT/LON
+# MERGE TO
 # ---------------------------
 map_df = map_df.merge(
     country_df,
@@ -359,20 +374,17 @@ map_df = map_df.merge(
 })
 
 # ---------------------------
-# COMBINE BOTH POINTS
+# COMBINE POINTS
 # ---------------------------
 map_points = pd.concat([
     map_df[["From_Lat", "From_Lon"]].rename(columns={"From_Lat": "lat", "From_Lon": "lon"}),
     map_df[["To_Lat", "To_Lon"]].rename(columns={"To_Lat": "lat", "To_Lon": "lon"})
 ])
 
-# ---------------------------
-# CLEAN NULLS
-# ---------------------------
 map_points = map_points.dropna()
 
 # ---------------------------
-# GROUP (REMOVE DUPLICATES)
+# GROUP
 # ---------------------------
 map_points = map_points.groupby(["lat", "lon"]).size().reset_index(name="count")
 
