@@ -270,13 +270,13 @@ op2 = st.selectbox("Operator 2", op_list)
 st.write(f"{op1}: {len(filtered_df[filtered_df['Operator_Code']==op1])} records")
 st.write(f"{op2}: {len(filtered_df[filtered_df['Operator_Code'] == op2])} records")
 
+
 import pydeck as pdk
 import pandas as pd
-import streamlit as st
 
-# =========================================================
+# ---------------------------
 # LOAD COUNTRY DATA
-# =========================================================
+# ---------------------------
 country_df = pd.read_csv("country_lat_lon.csv")
 
 country_df = country_df.rename(columns={
@@ -285,114 +285,72 @@ country_df = country_df.rename(columns={
     "longitude": "Longitude"
 })
 
-country_df["Country_Code"] = country_df["Country_Code"].astype(str).str.strip().str.upper()
+country_df["Country_Code"] = country_df["Country_Code"].str.strip().str.upper()
 
-# =========================================================
+# ---------------------------
 # PREPARE DATA
-# =========================================================
+# ---------------------------
 map_df = filtered_df.copy()
-
-# Fix column names
 map_df.columns = map_df.columns.str.strip().str.replace(r"\s+", "_", regex=True)
 
-# Auto-detect columns (SAFE)
-from_col = None
-to_col = None
-
-for col in map_df.columns:
-    if "from" in col.lower() and "code" in col.lower():
-        from_col = col
-    if "to" in col.lower() and "code" in col.lower():
-        to_col = col
-
-if not from_col or not to_col:
-    st.error("❌ From/To Port Code columns not found")
-    st.write("Available columns:", map_df.columns.tolist())
-    st.stop()
-
 # Clean port codes
-map_df[from_col] = map_df[from_col].astype(str).str.strip().str.upper()
-map_df[to_col] = map_df[to_col].astype(str).str.strip().str.upper()
+map_df["From_Port_Code"] = map_df["From_Port_Code"].str.strip().str.upper()
+map_df["To_Port_Code"] = map_df["To_Port_Code"].str.strip().str.upper()
 
-# =========================================================
-# EXTRACT COUNTRY
-# =========================================================
-map_df["From_Country"] = map_df[from_col].str[:2]
-map_df["To_Country"] = map_df[to_col].str[:2]
+# Extract country
+map_df["From_Country"] = map_df["From_Port_Code"].str[:2]
+map_df["To_Country"] = map_df["To_Port_Code"].str[:2]
 
-# DEBUG
-st.write("Sample country extraction:")
-st.write(map_df[[from_col, "From_Country", to_col, "To_Country"]].head())
+# ---------------------------
+# GROUP ROUTES (🔥 KEY FIX)
+# ---------------------------
+route_df = (
+    map_df.groupby(["From_Country", "To_Country"])
+    .size()
+    .reset_index(name="Count")
+)
 
-# =========================================================
-# MERGE FROM LAT/LON
-# =========================================================
-map_df = map_df.merge(
+# 🔥 TAKE TOP ROUTES ONLY
+route_df = route_df.sort_values(by="Count", ascending=False).head(30)
+
+# ---------------------------
+# MERGE LAT/LON
+# ---------------------------
+route_df = route_df.merge(
     country_df,
     left_on="From_Country",
     right_on="Country_Code",
     how="left"
-).rename(columns={
-    "Latitude": "from_lat",
-    "Longitude": "from_lon"
-})
+).rename(columns={"Latitude": "from_lat", "Longitude": "from_lon"})
 
-# =========================================================
-# MERGE TO LAT/LON
-# =========================================================
-map_df = map_df.merge(
+route_df = route_df.merge(
     country_df,
     left_on="To_Country",
     right_on="Country_Code",
     how="left",
     suffixes=("", "_to")
-).rename(columns={
-    "Latitude": "to_lat",
-    "Longitude": "to_lon"
-})
+).rename(columns={"Latitude": "to_lat", "Longitude": "to_lon"})
 
-# =========================================================
-# DEBUG CHECK
-# =========================================================
-st.write("After merge (check lat/lon):")
-st.write(map_df[[
-    from_col, "From_Country", "from_lat",
-    to_col, "To_Country", "to_lat"
-]].head(10))
+route_df = route_df.dropna()
 
-# =========================================================
-# HANDLE MISSING VALUES (IMPORTANT)
-# =========================================================
-# Instead of dropping everything → keep valid rows
-map_df = map_df[
-    map_df["from_lat"].notna() &
-    map_df["from_lon"].notna() &
-    map_df["to_lat"].notna() &
-    map_df["to_lon"].notna()
-]
-
-# If still empty → show error clearly
-if map_df.empty:
-    st.error("❌ No valid map data after merging. Country mapping failed.")
-    st.stop()
-
-# =========================================================
-# CREATE ARC LAYER
-# =========================================================
+# ---------------------------
+# ARC LAYER (THICKNESS BASED)
+# ---------------------------
 arc_layer = pdk.Layer(
     "ArcLayer",
-    data=map_df,
+    data=route_df,
     get_source_position=["from_lon", "from_lat"],
     get_target_position=["to_lon", "to_lat"],
+    get_width="Count",  # 🔥 thickness based on traffic
+    width_scale=0.5,
     get_source_color=[0, 128, 255],
     get_target_color=[255, 0, 80],
-    auto_highlight=True,
-    get_width=2,
+    pickable=True,
 )
 
-# =========================================================
-# VIEW SETTINGS
-# =========================================================
+# ---------------------------
+# VIEW
+# ---------------------------
 view_state = pdk.ViewState(
     latitude=20,
     longitude=0,
@@ -400,12 +358,21 @@ view_state = pdk.ViewState(
     pitch=30,
 )
 
-# =========================================================
-# DISPLAY MAP
-# =========================================================
-st.markdown("### 🌍 Shipping Route Flow Map")
+# ---------------------------
+# TOOLTIP (🔥 PRO FEATURE)
+# ---------------------------
+tooltip = {
+    "html": "<b>Route:</b> {From_Country} → {To_Country}<br><b>Count:</b> {Count}",
+    "style": {"color": "white"}
+}
+
+# ---------------------------
+# DISPLAY
+# ---------------------------
+st.markdown("### 🌍 Clean Shipping Flow Map")
 
 st.pydeck_chart(pdk.Deck(
     layers=[arc_layer],
     initial_view_state=view_state,
+    tooltip=tooltip
 ))
