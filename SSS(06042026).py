@@ -140,7 +140,7 @@ c4.markdown(f'<div class="card card4">VESSELS<br><h1>{filtered_df["Vessel_Name"]
 # ---------------------------
 # DOWNLOAD
 # ---------------------------
-st.download_button("📥 Download Data", filtered_df.to_csv(index=False), "data.csv")
+#st.download_button("📥 Download Data", filtered_df.to_csv(index=False), "data.csv")
 
 # ---------------------------
 # MARKET SHARE
