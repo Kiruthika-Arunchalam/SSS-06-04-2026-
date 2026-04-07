@@ -282,20 +282,57 @@ country_df = country_df.rename(columns={
 
 country_df["Country_Code"] = country_df["Country_Code"].str.strip().str.upper()
 
+# =========================================================
+# 🌍 MAP SECTION (FULL WORKING VERSION)
+# =========================================================
+
 # ---------------------------
-# PREPARE MAP DATA
+# LOAD COUNTRY DATA
 # ---------------------------
+country_df = pd.read_csv("country_lat_lon.csv")
+
+# Clean + rename
+country_df = country_df.rename(columns={
+    "country_code": "Country_Code",
+    "latitude": "Latitude",
+    "longitude": "Longitude"
+})
+
+country_df["Country_Code"] = country_df["Country_Code"].astype(str).str.strip().str.upper()
+
+# ---------------------------
+# FIX COLUMN NAMES (IMPORTANT)
+# ---------------------------
+# Remove spaces & standardize
+filtered_df.columns = filtered_df.columns.str.strip().str.replace(" ", "_")
+
 map_df = filtered_df.copy()
 
+# ---------------------------
+# CHECK REQUIRED COLUMNS
+# ---------------------------
+required_cols = ["From_Port_Code", "To_Port_Code"]
+
+missing_cols = [col for col in required_cols if col not in map_df.columns]
+
+if missing_cols:
+    st.error(f"Missing columns: {missing_cols}")
+    st.stop()
+
+# ---------------------------
+# CLEAN PORT CODES
+# ---------------------------
 map_df["From_Port_Code"] = map_df["From_Port_Code"].astype(str).str.strip().str.upper()
 map_df["To_Port_Code"] = map_df["To_Port_Code"].astype(str).str.strip().str.upper()
 
-# Extract country
+# ---------------------------
+# EXTRACT COUNTRY
+# ---------------------------
 map_df["From_Country"] = map_df["From_Port_Code"].str[:2]
 map_df["To_Country"] = map_df["To_Port_Code"].str[:2]
 
 # ---------------------------
-# MERGE LAT/LON (FROM)
+# MERGE FROM COUNTRY LAT/LON
 # ---------------------------
 map_df = map_df.merge(
     country_df,
@@ -308,7 +345,7 @@ map_df = map_df.merge(
 })
 
 # ---------------------------
-# MERGE LAT/LON (TO)
+# MERGE TO COUNTRY LAT/LON
 # ---------------------------
 map_df = map_df.merge(
     country_df,
@@ -322,16 +359,26 @@ map_df = map_df.merge(
 })
 
 # ---------------------------
-# COMBINE POINTS
+# COMBINE BOTH POINTS
 # ---------------------------
 map_points = pd.concat([
     map_df[["From_Lat", "From_Lon"]].rename(columns={"From_Lat": "lat", "From_Lon": "lon"}),
     map_df[["To_Lat", "To_Lon"]].rename(columns={"To_Lat": "lat", "To_Lon": "lon"})
 ])
 
+# ---------------------------
+# CLEAN NULLS
+# ---------------------------
 map_points = map_points.dropna()
 
 # ---------------------------
-# PLOT MAP
+# GROUP (REMOVE DUPLICATES)
 # ---------------------------
-st.map(map_points)
+map_points = map_points.groupby(["lat", "lon"]).size().reset_index(name="count")
+
+# ---------------------------
+# DISPLAY MAP
+# ---------------------------
+st.markdown('<div class="section">Global Port Map</div>', unsafe_allow_html=True)
+
+st.map(map_points[["lat", "lon"]])
