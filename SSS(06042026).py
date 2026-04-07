@@ -174,30 +174,51 @@ final_df = final_df.reset_index(drop=True)
 st.dataframe(final_df, use_container_width=True)# ---------------------------
 # OPERATOR TREND
 # ---------------------------
-trend_pivot = (
+# ---------------------------
+# DATE WISE OPERATOR COUNT (FINAL CLEAN)
+# ---------------------------
+st.markdown('<div class="section">Date Wise Operator Count</div>', unsafe_allow_html=True)
+
+# Create trend data
+trend = (
     filtered_df
     .groupby(["Inserted_Date", "Operator_Code"])
     .size()
     .reset_index(name="Count")
-    .pivot(index="Inserted_Date", columns="Operator_Code", values="Count")
-    .fillna(0)
 )
 
-fig = px.imshow(
-    trend_pivot,
-    text_auto=True,
-    aspect="auto",
-    color_continuous_scale="Blues"
+# ✅ Format date to dd-mm-yyyy
+trend["Inserted_Date"] = pd.to_datetime(trend["Inserted_Date"]).dt.strftime("%d-%m-%Y")
+
+# Create chart
+fig = px.bar(
+    trend,
+    x="Inserted_Date",
+    y="Count",
+    color="Operator_Code",
+    text="Count",
+    barmode="group",   # ✅ grouped bars (best visibility)
+    color_discrete_sequence=px.colors.qualitative.Bold  # ✅ strong colors
 )
 
+# Show count clearly
+fig.update_traces(
+    textposition="outside",
+    textfont=dict(size=12)
+)
+
+# Rotate x-axis if needed
 fig.update_layout(
-    xaxis_title="Operator",
-    yaxis_title="Date"
+    xaxis_title="Date",
+    yaxis_title="Operator Count",
+    xaxis_tickangle=-30
 )
 
+# Apply your theme styling
 fig = style_chart(fig)
-st.plotly_chart(fig, use_container_width=True)
-# ---------------------------
+
+# Display
+st.plotly_chart(fig, use_container_width=True)# ---------------------------
 # OPERATOR COMPARISON
 # ---------------------------
 st.markdown('<div class="section">Operator Comparison</div>', unsafe_allow_html=True)
