@@ -268,7 +268,7 @@ op1 = st.selectbox("Operator 1", op_list)
 op2 = st.selectbox("Operator 2", op_list)
 
 st.write(f"{op1}: {len(filtered_df[filtered_df['Operator_Code']==op1])} records")
-st.write(f"{op2}: {len(filtered_df[filtered_df['Operator_Code']==op2])} records
+st.write(f"{op2}: {len(filtered_df[filtered_df['Operator_Code'] == op2])} records")
 # ---------------------------
 # LOAD COUNTRY DATA
 # ---------------------------
