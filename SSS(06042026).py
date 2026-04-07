@@ -247,15 +247,15 @@ st.plotly_chart(style_chart(fig_service), use_container_width=True)
 # ---------------------------
 # ANOMALY DETECTION
 # ---------------------------
-st.markdown('<div class="section">Anomaly Detection</div>', unsafe_allow_html=True)
+# st.markdown('<div class="section">Anomaly Detection</div>', unsafe_allow_html=True)
 
-anomaly = filtered_df["Operator_Code"].value_counts().reset_index()
-anomaly.columns = ["Operator", "Count"]
+# anomaly = filtered_df["Operator_Code"].value_counts().reset_index()
+# anomaly.columns = ["Operator", "Count"]
 
-avg = anomaly["Count"].mean()
-anomaly["Anomaly"] = anomaly["Count"] < (avg * 0.5)
+# avg = anomaly["Count"].mean()
+# anomaly["Anomaly"] = anomaly["Count"] < (avg * 0.5)
 
-st.dataframe(anomaly[anomaly["Anomaly"] == True])
+# st.dataframe(anomaly[anomaly["Anomaly"] == True])
 
 # ---------------------------
 # COMPARISON
