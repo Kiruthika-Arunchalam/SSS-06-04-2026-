@@ -122,46 +122,7 @@ from_port = col3.multiselect("From Port", from_port_list)
 to_port = col4.multiselect("To Port", to_port_list)
 
 # ---------------------------
-# DATE RANGE FILTER (FINAL FINAL FIX)
-# ---------------------------
-
-# ✅ Always keep datetime (NOT .dt.date)
-df["Inserted_Date"] = pd.to_datetime(df["Inserted_At"]).dt.normalize()
-
-valid_dates = df["Inserted_Date"].dropna()
-
-if not valid_dates.empty:
-    min_date = valid_dates.min()
-    max_date = valid_dates.max()
-
-    # ✅ ALWAYS RANGE PICKER (no condition)
-    date_range = st.date_input(
-        "📅 Select From & To Date",
-        value=(min_date.date(), max_date.date()),
-        min_value=min_date.date(),
-        max_value=max_date.date(),
-        key="date_range_fixed_final"   # 🔥 fixed key
-    )
-
-    # ✅ SAFE HANDLING
-    if isinstance(date_range, tuple) and len(date_range) == 2:
-        start_date = pd.to_datetime(date_range[0])
-        end_date = pd.to_datetime(date_range[1])
-    else:
-        start_date = pd.to_datetime(date_range)
-        end_date = pd.to_datetime(date_range)
-
-    # ✅ APPLY FILTER
-    filtered_df = df[
-        (df["Inserted_Date"] >= start_date) &
-        (df["Inserted_Date"] <= end_date)
-    ]
-
-    st.success(f"Showing: {start_date.date()} → {end_date.date()}")
-
-else:
-    filtered_df = df.copy()
-    st.warning("No valid dates found")# KPI CARDS
+filtered_df = df.copy()
 # ---------------------------
 c1, c2, c3, c4 = st.columns(4)
 
@@ -213,29 +174,29 @@ final_df = final_df.reset_index(drop=True)
 st.dataframe(final_df, use_container_width=True)# ---------------------------
 # OPERATOR TREND
 # ---------------------------
-st.markdown('<div class="section">Date Wise Operator Trend</div>', unsafe_allow_html=True)
-
-trend = (
-    filtered_df.groupby(["Inserted_Date", "Operator_Code"])
+trend_pivot = (
+    filtered_df
+    .groupby(["Inserted_Date", "Operator_Code"])
     .size()
     .reset_index(name="Count")
+    .pivot(index="Inserted_Date", columns="Operator_Code", values="Count")
+    .fillna(0)
 )
 
-fig = px.bar(
-    trend,
-    y="Inserted_Date",
-    x="Count",
-    color="Operator_Code",
-    orientation="h",
-    text="Operator_Code"   # ✅ IMPORTANT LINE
+fig = px.imshow(
+    trend_pivot,
+    text_auto=True,
+    aspect="auto",
+    color_continuous_scale="Blues"
 )
 
-fig.update_traces(
-    textposition="outside",
-    textfont=dict(size=10)
+fig.update_layout(
+    xaxis_title="Operator",
+    yaxis_title="Date"
 )
+
+fig = style_chart(fig)
 st.plotly_chart(fig, use_container_width=True)
-
 # ---------------------------
 # OPERATOR COMPARISON
 # ---------------------------
