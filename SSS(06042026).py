@@ -175,7 +175,7 @@ total = pd.DataFrame({
 final_df = pd.concat([summary_df, total])
 
 st.dataframe(final_df, use_container_width=True)
------#operator trend------
+#---------operator trend----------------
 
 st.markdown('<div class="section">Operator Count (Clickable)</div>', unsafe_allow_html=True)
 
