@@ -1,11 +1,9 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import zipfile
-import os
 
 # ---------------------------
-# CONFIG`
+# CONFIG
 # ---------------------------
 st.set_page_config(page_title="SSS Dashboard", layout="wide")
 
@@ -62,13 +60,12 @@ body {{
 # CHART STYLE
 # ---------------------------
 def style_chart(fig):
-    axis_color = "white" if theme else "black"
     fig.update_layout(
         plot_bgcolor=bg_color,
         paper_bgcolor=bg_color,
         font_color=text_color,
-        xaxis=dict(tickfont=dict(color=axis_color)),
-        yaxis=dict(tickfont=dict(color=axis_color))
+        xaxis=dict(tickfont=dict(color=text_color)),
+        yaxis=dict(tickfont=dict(color=text_color))
     )
     return fig
 
@@ -78,15 +75,10 @@ def style_chart(fig):
 st.markdown('<div class="title">SSS DATA ANALYTICS DASHBOARD</div>', unsafe_allow_html=True)
 
 # ---------------------------
-# LOAD DATA
+# LOAD DATA (NO CACHE ISSUE)
 # ---------------------------
-
-
-
-@st.cache_data(ttl=0)
 def load_data():
-    file_name = "SSS(06-04-2026).csv"
-    df = pd.read_csv(file_name, encoding="cp1252")
+    df = pd.read_csv("SSS(06-04-2026).csv", encoding="cp1252")
     return df
 
 df = load_data()
@@ -100,41 +92,43 @@ df["From_Port"] = df["From_Port"].astype(str).str.strip().str.upper()
 df["To_Port"] = df["To_Port"].astype(str).str.strip().str.upper()
 
 df["Inserted_At"] = pd.to_datetime(df["Inserted_At"], errors="coerce", dayfirst=True)
-
-# ✅ IMPORTANT: use ONLY date type
-df["Inserted_Date"] = pd.to_datetime(df["Inserted_At"]).dt.normalize()
+df["Inserted_Date"] = df["Inserted_At"].dt.normalize()
 
 # ---------------------------
-# FILTER UI
+# FILTERS
 # ---------------------------
 st.markdown("### Filters")
 
 col1, col2, col3, col4 = st.columns(4)
 
-operator_list = sorted(df["Operator_Code"].dropna().unique())
-service_list = sorted(df["Service"].dropna().unique())
-from_port_list = sorted(df["From_Port"].dropna().unique())
-to_port_list = sorted(df["To_Port"].dropna().unique())
+operator = col1.multiselect("Operator", sorted(df["Operator_Code"].unique()))
+service = col2.multiselect("Service", sorted(df["Service"].unique()))
+from_port = col3.multiselect("From Port", sorted(df["From_Port"].unique()))
+to_port = col4.multiselect("To Port", sorted(df["To_Port"].unique()))
 
-operator = col1.multiselect("Operator", operator_list)
-service = col2.multiselect("Service", service_list)
-from_port = col3.multiselect("From Port", from_port_list)
-to_port = col4.multiselect("To Port", to_port_list)
-
-# ---------------------------
 filtered_df = df.copy()
 
 if operator:
     filtered_df = filtered_df[filtered_df["Operator_Code"].isin(operator)]
-
 if service:
     filtered_df = filtered_df[filtered_df["Service"].isin(service)]
-
 if from_port:
     filtered_df = filtered_df[filtered_df["From_Port"].isin(from_port)]
-
 if to_port:
     filtered_df = filtered_df[filtered_df["To_Port"].isin(to_port)]
+
+# ---------------------------
+# KPI METRICS
+# ---------------------------
+k1, k2, k3, k4 = st.columns(4)
+
+k1.metric("Total Records", len(filtered_df))
+k2.metric("Operators", filtered_df["Operator_Code"].nunique())
+k3.metric("Routes", filtered_df["From_Port"].nunique())
+k4.metric("Services", filtered_df["Service"].nunique())
+
+# ---------------------------
+# CARDS
 # ---------------------------
 c1, c2, c3, c4 = st.columns(4)
 
@@ -144,107 +138,65 @@ c3.markdown(f'<div class="card card3">TERMINALS<br><h1>{filtered_df["From_Port_T
 c4.markdown(f'<div class="card card4">VESSELS<br><h1>{filtered_df["Vessel_Name"].nunique()}</h1></div>', unsafe_allow_html=True)
 
 # ---------------------------
-# SUMMARY TABLE WITH FINAL TOTAL
+# DOWNLOAD
+# ---------------------------
+st.download_button("📥 Download Data", filtered_df.to_csv(index=False), "data.csv")
+
+# ---------------------------
+# MARKET SHARE
+# ---------------------------
+st.markdown('<div class="section">Market Share</div>', unsafe_allow_html=True)
+
+market_df = filtered_df["Operator_Code"].value_counts().reset_index()
+market_df.columns = ["Operator", "Count"]
+
+fig_pie = px.pie(market_df, names="Operator", values="Count", hole=0.4)
+st.plotly_chart(style_chart(fig_pie), use_container_width=True)
+
+# ---------------------------
+# SUMMARY TABLE
 # ---------------------------
 st.markdown('<div class="section">Date vs Operator Summary</div>', unsafe_allow_html=True)
 
-# Summary per date & operator
 summary_df = (
-    filtered_df
-    .dropna(subset=["Inserted_Date", "Operator_Code"])
-    .groupby(["Inserted_Date", "Operator_Code"])
-    .size()
-    .reset_index(name="Operator_Count")
-)
-
-# Sort
-summary_df = summary_df.sort_values(by=["Inserted_Date", "Operator_Code"])
-
-# ---------------------------
-# GRAND TOTAL (ONLY ONE ROW)
-# ---------------------------
-grand_total = pd.DataFrame({
-    "Inserted_Date": ["TOTAL"],
-    "Operator_Code": [""],
-    "Operator_Count": [summary_df["Operator_Count"].sum()]
-})
-
-# ---------------------------
-# FORMAT DATE
-# ---------------------------
-summary_df["Inserted_Date"] = pd.to_datetime(summary_df["Inserted_Date"]).dt.strftime("%d-%m-%Y")
-
-# Combine
-final_df = pd.concat([summary_df, grand_total], ignore_index=True)
-
-# ---------------------------
-# RESET INDEX (FIX ISSUE)
-# ---------------------------
-final_df = final_df.reset_index(drop=True)
-
-# Display
-st.dataframe(final_df, use_container_width=True)# ---------------------------
-# OPERATOR TREND
-# ---------------------------
-# ---------------------------
-# DATE WISE OPERATOR COUNT (FINAL CLEAN)
-# ---------------------------
-# ---------------------------
-# DATE WISE OPERATOR COUNT (FINAL FIXED)
-# ---------------------------
-st.markdown('<div class="section">Operator Count (06-04-2026)</div>', unsafe_allow_html=True)
-
-# Create trend data
-trend = (
-    filtered_df
-    .groupby(["Operator_Code"])
+    filtered_df.groupby(["Inserted_Date", "Operator_Code"])
     .size()
     .reset_index(name="Count")
 )
 
-# Sort for better view
-trend = trend.sort_values(by="Count", ascending=False)
+summary_df["Inserted_Date"] = summary_df["Inserted_Date"].dt.strftime("%d-%m-%Y")
 
-# Create chart
+total = pd.DataFrame({
+    "Inserted_Date": ["TOTAL"],
+    "Operator_Code": [""],
+    "Count": [summary_df["Count"].sum()]
+})
+
+final_df = pd.concat([summary_df, total])
+
+st.dataframe(final_df, use_container_width=True)
+
+# ---------------------------
+# OPERATOR TREND
+# ---------------------------
+st.markdown('<div class="section">Operator Count</div>', unsafe_allow_html=True)
+
+trend = filtered_df["Operator_Code"].value_counts().reset_index()
+trend.columns = ["Operator", "Count"]
+
 fig = px.bar(
     trend,
-    x="Operator_Code",   # ✅ FIXED
+    x="Operator",
     y="Count",
-    color="Operator_Code",
+    color="Operator",
     text="Count",
     color_discrete_sequence=px.colors.qualitative.Bold
 )
 
-# ✅ Show count clearly
-fig.update_traces(
-    textposition="outside",
-    textfont=dict(size=12, color="black")
-)
+fig.update_traces(textposition="outside", textfont=dict(color=text_color))
+fig.update_layout(showlegend=False)
 
-# ❌ REMOVE GRIDLINES
-fig.update_layout(
-    xaxis_title="Operator",
-    yaxis_title="Count",
-    xaxis_tickangle=-30,
-    showlegend=False,  # optional cleaner look
-    yaxis=dict(showgrid=False),
-    xaxis=dict(showgrid=False)
-)
-
-# Apply theme
-fig = style_chart(fig)
-
-st.plotly_chart(fig, use_container_width=True)
-# # OPERATOR COMPARISON
-# # ---------------------------
-# st.markdown('<div class="section">Operator Comparison</div>', unsafe_allow_html=True)
-
-# compare = filtered_df["Operator_Code"].value_counts().reset_index()
-# compare.columns = ["Operator", "Count"]
-
-# fig_compare = px.bar(compare, x="Operator", y="Count", color="Operator")
-# fig_compare = style_chart(fig_compare)
-# st.plotly_chart(fig_compare, use_container_width=True)
+st.plotly_chart(style_chart(fig), use_container_width=True)
 
 # ---------------------------
 # TOP ROUTES
@@ -260,16 +212,17 @@ route_df = (
 route_df["Route"] = route_df["From_Port"] + " → " + route_df["To_Port"]
 route_df = route_df.sort_values(by="Count", ascending=False).head(10)
 
-fig_route = px.bar(route_df, x="Count", y="Route", orientation="h", color='Route', color_discrete_sequence=px.colors.qualitative.Set3)
-fig_route.update_layout(
-    showlegend=False,
-    xaxis=dict(showgrid=False),
-    yaxis=dict(showgrid=False)
+fig_route = px.bar(
+    route_df,
+    x="Count",
+    y="Route",
+    orientation="h",
+    color="Route",
+    text="Count",
+    color_discrete_sequence=px.colors.qualitative.Set3
 )
 
-fig_route = style_chart(fig_route)
-fig_route.update_traces(text=route_df["Count"], textposition="outside")
-st.plotly_chart(fig_route, use_container_width=True)
+st.plotly_chart(style_chart(fig_route), use_container_width=True)
 
 # ---------------------------
 # SERVICE DISTRIBUTION
@@ -279,13 +232,40 @@ st.markdown('<div class="section">Service Distribution</div>', unsafe_allow_html
 service_df = filtered_df["Service"].value_counts().reset_index()
 service_df.columns = ["Service", "Count"]
 
-fig_service = px.bar(service_df.head(10), x="Count", y="Service", orientation="h", color='Service', color_discrete_sequence=px.colors.qualitative.Dark24)
-fig_service.update_layout(
-    showlegend=False,
-    xaxis=dict(showgrid=False),
-    yaxis=dict(showgrid=False)
+fig_service = px.bar(
+    service_df.head(10),
+    x="Count",
+    y="Service",
+    orientation="h",
+    color="Service",
+    text="Count",
+    color_discrete_sequence=px.colors.qualitative.Dark24
 )
 
-fig_service = style_chart(fig_service)
-fig_service.update_traces(text=service_df["Count"], textposition="outside")
-st.plotly_chart(fig_service, use_container_width=True)
+st.plotly_chart(style_chart(fig_service), use_container_width=True)
+
+# ---------------------------
+# ANOMALY DETECTION
+# ---------------------------
+st.markdown('<div class="section">Anomaly Detection</div>', unsafe_allow_html=True)
+
+anomaly = filtered_df["Operator_Code"].value_counts().reset_index()
+anomaly.columns = ["Operator", "Count"]
+
+avg = anomaly["Count"].mean()
+anomaly["Anomaly"] = anomaly["Count"] < (avg * 0.5)
+
+st.dataframe(anomaly[anomaly["Anomaly"] == True])
+
+# ---------------------------
+# COMPARISON
+# ---------------------------
+st.markdown('<div class="section">Operator Comparison</div>', unsafe_allow_html=True)
+
+op_list = filtered_df["Operator_Code"].unique()
+
+op1 = st.selectbox("Operator 1", op_list)
+op2 = st.selectbox("Operator 2", op_list)
+
+st.write(f"{op1}: {len(filtered_df[filtered_df['Operator_Code']==op1])} records")
+st.write(f"{op2}: {len(filtered_df[filtered_df['Operator_Code']==op2])} records")
