@@ -269,9 +269,14 @@ op2 = st.selectbox("Operator 2", op_list)
 
 st.write(f"{op1}: {len(filtered_df[filtered_df['Operator_Code']==op1])} records")
 st.write(f"{op2}: {len(filtered_df[filtered_df['Operator_Code'] == op2])} records")
-# ---------------------------
+
+import pydeck as pdk
+import pandas as pd
+import streamlit as st
+
+# =========================================================
 # LOAD COUNTRY DATA
-# ---------------------------
+# =========================================================
 country_df = pd.read_csv("country_lat_lon.csv")
 
 country_df = country_df.rename(columns={
@@ -280,41 +285,48 @@ country_df = country_df.rename(columns={
     "longitude": "Longitude"
 })
 
-country_df["Country_Code"] = country_df["Country_Code"].str.strip().str.upper()
-import pydeck as pdk
+country_df["Country_Code"] = country_df["Country_Code"].astype(str).str.strip().str.upper()
 
-# ---------------------------
-# PREPARE MAP DATA
-# ---------------------------
+# =========================================================
+# PREPARE DATA
+# =========================================================
 map_df = filtered_df.copy()
 
-# Clean column names
+# Fix column names
 map_df.columns = map_df.columns.str.strip().str.replace(r"\s+", "_", regex=True)
 
+# Auto-detect columns (SAFE)
+from_col = None
+to_col = None
+
+for col in map_df.columns:
+    if "from" in col.lower() and "code" in col.lower():
+        from_col = col
+    if "to" in col.lower() and "code" in col.lower():
+        to_col = col
+
+if not from_col or not to_col:
+    st.error("❌ From/To Port Code columns not found")
+    st.write("Available columns:", map_df.columns.tolist())
+    st.stop()
+
 # Clean port codes
-map_df["From_Port_Code"] = map_df["From_Port_Code"].astype(str).str.strip().str.upper()
-map_df["To_Port_Code"] = map_df["To_Port_Code"].astype(str).str.strip().str.upper()
+map_df[from_col] = map_df[from_col].astype(str).str.strip().str.upper()
+map_df[to_col] = map_df[to_col].astype(str).str.strip().str.upper()
 
-# Extract country
-map_df["From_Country"] = map_df["From_Port_Code"].str[:2]
-map_df["To_Country"] = map_df["To_Port_Code"].str[:2]
+# =========================================================
+# EXTRACT COUNTRY
+# =========================================================
+map_df["From_Country"] = map_df[from_col].str[:2]
+map_df["To_Country"] = map_df[to_col].str[:2]
 
-# ---------------------------
-# LOAD COUNTRY LAT/LON
-# ---------------------------
-country_df = pd.read_csv("country_lat_lon.csv")
+# DEBUG
+st.write("Sample country extraction:")
+st.write(map_df[[from_col, "From_Country", to_col, "To_Country"]].head())
 
-country_df = country_df.rename(columns={
-    "country_code": "Country_Code",
-    "latitude": "Latitude",
-    "longitude": "Longitude"
-})
-
-country_df["Country_Code"] = country_df["Country_Code"].str.strip().str.upper()
-
-# ---------------------------
-# MERGE FROM
-# ---------------------------
+# =========================================================
+# MERGE FROM LAT/LON
+# =========================================================
 map_df = map_df.merge(
     country_df,
     left_on="From_Country",
@@ -325,9 +337,9 @@ map_df = map_df.merge(
     "Longitude": "from_lon"
 })
 
-# ---------------------------
-# MERGE TO
-# ---------------------------
+# =========================================================
+# MERGE TO LAT/LON
+# =========================================================
 map_df = map_df.merge(
     country_df,
     left_on="To_Country",
@@ -339,14 +351,34 @@ map_df = map_df.merge(
     "Longitude": "to_lon"
 })
 
-# ---------------------------
-# CLEAN
-# ---------------------------
-map_df = map_df.dropna(subset=["from_lat", "from_lon", "to_lat", "to_lon"])
+# =========================================================
+# DEBUG CHECK
+# =========================================================
+st.write("After merge (check lat/lon):")
+st.write(map_df[[
+    from_col, "From_Country", "from_lat",
+    to_col, "To_Country", "to_lat"
+]].head(10))
 
-# ---------------------------
-# CREATE ARC LAYER (LINES)
-# ---------------------------
+# =========================================================
+# HANDLE MISSING VALUES (IMPORTANT)
+# =========================================================
+# Instead of dropping everything → keep valid rows
+map_df = map_df[
+    map_df["from_lat"].notna() &
+    map_df["from_lon"].notna() &
+    map_df["to_lat"].notna() &
+    map_df["to_lon"].notna()
+]
+
+# If still empty → show error clearly
+if map_df.empty:
+    st.error("❌ No valid map data after merging. Country mapping failed.")
+    st.stop()
+
+# =========================================================
+# CREATE ARC LAYER
+# =========================================================
 arc_layer = pdk.Layer(
     "ArcLayer",
     data=map_df,
@@ -355,13 +387,12 @@ arc_layer = pdk.Layer(
     get_source_color=[0, 128, 255],
     get_target_color=[255, 0, 80],
     auto_highlight=True,
-    width_scale=0.0005,
     get_width=2,
 )
 
-# ---------------------------
+# =========================================================
 # VIEW SETTINGS
-# ---------------------------
+# =========================================================
 view_state = pdk.ViewState(
     latitude=20,
     longitude=0,
@@ -369,13 +400,12 @@ view_state = pdk.ViewState(
     pitch=30,
 )
 
-# ---------------------------
-# RENDER MAP
-# ---------------------------
-st.markdown('<div class="section">Shipping Route Flow Map</div>', unsafe_allow_html=True)
+# =========================================================
+# DISPLAY MAP
+# =========================================================
+st.markdown("### 🌍 Shipping Route Flow Map")
 
 st.pydeck_chart(pdk.Deck(
     layers=[arc_layer],
     initial_view_state=view_state,
 ))
-
