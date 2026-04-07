@@ -281,13 +281,26 @@ country_df = country_df.rename(columns={
 })
 
 country_df["Country_Code"] = country_df["Country_Code"].str.strip().str.upper()
-
-# =========================================================
-# 🌍 MAP SECTION (FINAL FIXED VERSION)
-# =========================================================
+import pydeck as pdk
 
 # ---------------------------
-# LOAD COUNTRY DATA
+# PREPARE MAP DATA
+# ---------------------------
+map_df = filtered_df.copy()
+
+# Clean column names
+map_df.columns = map_df.columns.str.strip().str.replace(r"\s+", "_", regex=True)
+
+# Clean port codes
+map_df["From_Port_Code"] = map_df["From_Port_Code"].astype(str).str.strip().str.upper()
+map_df["To_Port_Code"] = map_df["To_Port_Code"].astype(str).str.strip().str.upper()
+
+# Extract country
+map_df["From_Country"] = map_df["From_Port_Code"].str[:2]
+map_df["To_Country"] = map_df["To_Port_Code"].str[:2]
+
+# ---------------------------
+# LOAD COUNTRY LAT/LON
 # ---------------------------
 country_df = pd.read_csv("country_lat_lon.csv")
 
@@ -297,54 +310,7 @@ country_df = country_df.rename(columns={
     "longitude": "Longitude"
 })
 
-country_df["Country_Code"] = country_df["Country_Code"].astype(str).str.strip().str.upper()
-
-# ---------------------------
-# CLEAN COLUMN NAMES PROPERLY
-# ---------------------------
-filtered_df.columns = (
-    filtered_df.columns
-    .str.strip()
-    .str.replace(r"\s+", "_", regex=True)
-)
-
-map_df = filtered_df.copy()
-
-# ---------------------------
-# DEBUG (PRINT ON SCREEN)
-# ---------------------------
-st.write("Columns in dataset:", map_df.columns.tolist())
-
-# ---------------------------
-# AUTO FIND PORT CODE COLUMNS
-# ---------------------------
-from_col = None
-to_col = None
-
-for col in map_df.columns:
-    if "from" in col.lower() and "code" in col.lower():
-        from_col = col
-    if "to" in col.lower() and "code" in col.lower():
-        to_col = col
-
-# ---------------------------
-# VALIDATION
-# ---------------------------
-if not from_col or not to_col:
-    st.error("❌ Could not detect From/To Port Code columns")
-    st.stop()
-
-# ---------------------------
-# CLEAN PORT CODES
-# ---------------------------
-map_df[from_col] = map_df[from_col].astype(str).str.strip().str.upper()
-map_df[to_col] = map_df[to_col].astype(str).str.strip().str.upper()
-
-# ---------------------------
-# EXTRACT COUNTRY
-# ---------------------------
-map_df["From_Country"] = map_df[from_col].str[:2]
-map_df["To_Country"] = map_df[to_col].str[:2]
+country_df["Country_Code"] = country_df["Country_Code"].str.strip().str.upper()
 
 # ---------------------------
 # MERGE FROM
@@ -355,8 +321,8 @@ map_df = map_df.merge(
     right_on="Country_Code",
     how="left"
 ).rename(columns={
-    "Latitude": "From_Lat",
-    "Longitude": "From_Lon"
+    "Latitude": "from_lat",
+    "Longitude": "from_lon"
 })
 
 # ---------------------------
@@ -369,28 +335,47 @@ map_df = map_df.merge(
     how="left",
     suffixes=("", "_to")
 ).rename(columns={
-    "Latitude": "To_Lat",
-    "Longitude": "To_Lon"
+    "Latitude": "to_lat",
+    "Longitude": "to_lon"
 })
 
 # ---------------------------
-# COMBINE POINTS
+# CLEAN
 # ---------------------------
-map_points = pd.concat([
-    map_df[["From_Lat", "From_Lon"]].rename(columns={"From_Lat": "lat", "From_Lon": "lon"}),
-    map_df[["To_Lat", "To_Lon"]].rename(columns={"To_Lat": "lat", "To_Lon": "lon"})
-])
-
-map_points = map_points.dropna()
+map_df = map_df.dropna(subset=["from_lat", "from_lon", "to_lat", "to_lon"])
 
 # ---------------------------
-# GROUP
+# CREATE ARC LAYER (LINES)
 # ---------------------------
-map_points = map_points.groupby(["lat", "lon"]).size().reset_index(name="count")
+arc_layer = pdk.Layer(
+    "ArcLayer",
+    data=map_df,
+    get_source_position=["from_lon", "from_lat"],
+    get_target_position=["to_lon", "to_lat"],
+    get_source_color=[0, 128, 255],
+    get_target_color=[255, 0, 80],
+    auto_highlight=True,
+    width_scale=0.0005,
+    get_width=2,
+)
 
 # ---------------------------
-# DISPLAY MAP
+# VIEW SETTINGS
 # ---------------------------
-st.markdown('<div class="section">Global Port Map</div>', unsafe_allow_html=True)
+view_state = pdk.ViewState(
+    latitude=20,
+    longitude=0,
+    zoom=1,
+    pitch=30,
+)
 
-st.map(map_points[["lat", "lon"]])
+# ---------------------------
+# RENDER MAP
+# ---------------------------
+st.markdown('<div class="section">Shipping Route Flow Map</div>', unsafe_allow_html=True)
+
+st.pydeck_chart(pdk.Deck(
+    layers=[arc_layer],
+    initial_view_state=view_state,
+))
+
