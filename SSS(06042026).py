@@ -83,7 +83,7 @@ st.markdown('<div class="title">SSS DATA ANALYTICS DASHBOARD</div>', unsafe_allo
 
 
 
-@st.cache_data(clear_on_reload=True)
+@st.cache_data(ttl=0)
 def load_data():
     file_name = "SSS(06-04-2026).csv"
     df = pd.read_csv(file_name, encoding="cp1252")
