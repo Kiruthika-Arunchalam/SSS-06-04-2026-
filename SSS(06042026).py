@@ -145,13 +145,13 @@ st.download_button("📥 Download Data", filtered_df.to_csv(index=False), "data.
 # ---------------------------
 # MARKET SHARE
 # ---------------------------
-st.markdown('<div class="section">Market Share</div>', unsafe_allow_html=True)
+# st.markdown('<div class="section">Market Share</div>', unsafe_allow_html=True)
 
-market_df = filtered_df["Operator_Code"].value_counts().reset_index()
-market_df.columns = ["Operator", "Count"]
+# market_df = filtered_df["Operator_Code"].value_counts().reset_index()
+# market_df.columns = ["Operator", "Count"]
 
-fig_pie = px.pie(market_df, names="Operator", values="Count", hole=0.4)
-st.plotly_chart(style_chart(fig_pie), use_container_width=True)
+# fig_pie = px.pie(market_df, names="Operator", values="Count", hole=0.4)
+# st.plotly_chart(style_chart(fig_pie), use_container_width=True)
 
 # ---------------------------
 # SUMMARY TABLE
