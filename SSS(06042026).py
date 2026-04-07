@@ -180,7 +180,7 @@ st.dataframe(final_df, use_container_width=True)# ---------------------------
 # ---------------------------
 # DATE WISE OPERATOR COUNT (FINAL FIXED)
 # ---------------------------
-st.markdown('<div class="section">Operator Count (Selected Date)</div>', unsafe_allow_html=True)
+st.markdown('<div class="section">Operator Count (06-04-2026)</div>', unsafe_allow_html=True)
 
 # Create trend data
 trend = (
