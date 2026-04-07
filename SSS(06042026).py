@@ -223,16 +223,16 @@ fig.update_layout(
 fig = style_chart(fig)
 
 st.plotly_chart(fig, use_container_width=True)
-# OPERATOR COMPARISON
-# ---------------------------
-st.markdown('<div class="section">Operator Comparison</div>', unsafe_allow_html=True)
+# # OPERATOR COMPARISON
+# # ---------------------------
+# st.markdown('<div class="section">Operator Comparison</div>', unsafe_allow_html=True)
 
-compare = filtered_df["Operator_Code"].value_counts().reset_index()
-compare.columns = ["Operator", "Count"]
+# compare = filtered_df["Operator_Code"].value_counts().reset_index()
+# compare.columns = ["Operator", "Count"]
 
-fig_compare = px.bar(compare, x="Operator", y="Count", color="Operator")
-fig_compare = style_chart(fig_compare)
-st.plotly_chart(fig_compare, use_container_width=True)
+# fig_compare = px.bar(compare, x="Operator", y="Count", color="Operator")
+# fig_compare = style_chart(fig_compare)
+# st.plotly_chart(fig_compare, use_container_width=True)
 
 # ---------------------------
 # TOP ROUTES
@@ -248,8 +248,15 @@ route_df = (
 route_df["Route"] = route_df["From_Port"] + " → " + route_df["To_Port"]
 route_df = route_df.sort_values(by="Count", ascending=False).head(10)
 
-fig_route = px.bar(route_df, x="Count", y="Route", orientation="h")
+fig_route = px.bar(route_df, x="Count", y="Route", orientation="h", color='Route', color_discrete_sequence=px.colors.qualitative.Set3)
+fig_route.update_layout(
+    showlegend=False,
+    xaxis=dict(showgrid=False),
+    yaxis=dict(showgrid=False)
+)
+
 fig_route = style_chart(fig_route)
+fig_route.update_traces(text=route_df["Count"], textposition="outside")
 st.plotly_chart(fig_route, use_container_width=True)
 
 # ---------------------------
@@ -260,6 +267,13 @@ st.markdown('<div class="section">Service Distribution</div>', unsafe_allow_html
 service_df = filtered_df["Service"].value_counts().reset_index()
 service_df.columns = ["Service", "Count"]
 
-fig_service = px.bar(service_df.head(10), x="Count", y="Service", orientation="h")
+fig_service = px.bar(service_df.head(10), x="Count", y="Service", orientation="h", color='Service', color_discrete_sequence=px.colors.qualitative.Dark24)
+fig_service.update_layout(
+    showlegend=False,
+    xaxis=dict(showgrid=False),
+    yaxis=dict(showgrid=False)
+)
+
 fig_service = style_chart(fig_service)
+fig_service.update_traces(text=service_df["Count"], textposition="outside")
 st.plotly_chart(fig_service, use_container_width=True)
