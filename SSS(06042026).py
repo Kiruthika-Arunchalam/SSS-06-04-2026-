@@ -175,11 +175,9 @@ total = pd.DataFrame({
 final_df = pd.concat([summary_df, total])
 
 st.dataframe(final_df, use_container_width=True)
+-----#operator trend------
 
-# ---------------------------
-# OPERATOR TREND
-# ---------------------------
-st.markdown('<div class="section">Operator Count</div>', unsafe_allow_html=True)
+st.markdown('<div class="section">Operator Count (Clickable)</div>', unsafe_allow_html=True)
 
 trend = filtered_df["Operator_Code"].value_counts().reset_index()
 trend.columns = ["Operator", "Count"]
@@ -196,8 +194,15 @@ fig = px.bar(
 fig.update_traces(textposition="outside", textfont=dict(color=text_color))
 fig.update_layout(showlegend=False)
 
-st.plotly_chart(style_chart(fig), use_container_width=True)
+selected = st.selectbox("👉 Click simulation (select operator)", ["All"] + trend["Operator"].tolist())
 
+# Apply filter
+if selected != "All":
+    st.session_state.selected_operator = selected
+else:
+    st.session_state.selected_operator = None
+
+st.plotly_chart(style_chart(fig), use_container_width=True)
 # ---------------------------
 # TOP ROUTES
 # ---------------------------
