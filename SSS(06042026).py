@@ -325,7 +325,7 @@ mode = st.radio(
 # ---------------------------
 # OPTION 1: TOP ROUTES
 # ---------------------------
-if mode == "Top Routes (Recommended)":
+if mode == "Top Routes":
     top_n = st.slider("Select Top Routes", 5, 50, 20)
     route_df = route_df.sort_values(by="Count", ascending=False).head(top_n)
 
@@ -384,11 +384,11 @@ arc_layer = pdk.Layer(
     data=route_df,
     get_source_position=["from_lon", "from_lat"],
     get_target_position=["to_lon", "to_lat"],
-    get_width="Count",  # thickness based on traffic
-    width_scale=0.2,
-    get_source_color=[0, 128, 255],
-    get_target_color=[255, 0, 80],
-    pickable=True,
+    get_width=1,
+    width_scale=1,
+    great_circle=False,
+    get_source_color=[0, 150, 255],
+    get_target_color=[255, 100, 150],
 )
 
 # =========================================================
