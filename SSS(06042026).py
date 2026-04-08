@@ -161,7 +161,7 @@ st.markdown('<div class="section">Date vs Operator Summary</div>', unsafe_allow_
 summary_df = (
     filtered_df.groupby(["Inserted_Date", "Operator_Code"])
     .size()
-    .reset_index(name="Count")
+    #.reset_index(name="Count")
 )
 
 summary_df["Inserted_Date"] = summary_df["Inserted_Date"].dt.strftime("%d-%m-%Y")
