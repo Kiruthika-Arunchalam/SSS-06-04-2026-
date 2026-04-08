@@ -315,11 +315,11 @@ route_df = (
 # =========================================================
 # USER CONTROL (🔥 KEY FEATURE)
 # =========================================================
-st.markdown("### 🌍 Route Selection")
+st.markdown("### Route Selection")
 
 mode = st.radio(
     "Select View",
-    ["Top Routes (Recommended)", "Select Specific Routes"]
+    ["Top Routes", "Select Specific Routes"]
 )
 
 # ---------------------------
